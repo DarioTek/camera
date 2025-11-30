@@ -1,27 +1,37 @@
 import cv2
 import mediapipe as mp
 
+# ------------------------------
+# MediaPipe setup
+# ------------------------------
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
 
+# Finger tip indices in MediaPipe
 FINGER_TIPS = [4, 8, 12, 16, 20]
+THUMB_MCP = 2
 WRIST = 0
 
-# ✅ USE CAMERA INDEX 1 on macOS
-cap = cv2.VideoCapture(1, cv2.CAP_AVFOUNDATION)
+# ------------------------------
+# Camera setup (macOS M1/M2)
+# ------------------------------
+cap = cv2.VideoCapture(1, cv2.CAP_AVFOUNDATION)  # Use camera index 1
 
 if not cap.isOpened():
-    print("ERROR: Camera 1 failed to open!")
+    print("ERROR: Camera failed to open!")
     exit()
 
 with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:
     while True:
         success, frame = cap.read()
         if not success:
-            print("Failed to read frame from camera index 1.")
+            print("Failed to read frame from camera.")
             break
 
+        # Flip horizontally for mirror view
         frame = cv2.flip(frame, 1)
+
+        # Convert BGR to RGB
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(rgb)
 
@@ -33,21 +43,27 @@ with mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7) as hands:
 
             landmarks = [lm for lm in hand_landmarks.landmark]
 
-            # Thumb logic
-            if landmarks[FINGER_TIPS[0]].x < landmarks[WRIST].x:
+            # Detect if hand is right or left
+            is_right_hand = landmarks[WRIST].x < landmarks[THUMB_MCP].x
+
+            # Thumb
+            if (is_right_hand and landmarks[FINGER_TIPS[0]].x > landmarks[THUMB_MCP].x) or \
+               (not is_right_hand and landmarks[FINGER_TIPS[0]].x < landmarks[THUMB_MCP].x):
                 finger_count += 1
 
-            # Other fingers
+            # Other fingers (index, middle, ring, pinky)
             for tip in FINGER_TIPS[1:]:
                 if landmarks[tip].y < landmarks[tip - 2].y:
                     finger_count += 1
 
+            # Display finger count
             cv2.putText(frame, f"Fingers: {finger_count}", (30, 80),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.8, (0, 255, 0), 4)
 
         cv2.imshow("Finger Counter", frame)
 
-        if cv2.waitKey(1) & 0xFF == 27:  # ESC key
+        # Press ESC to exit
+        if cv2.waitKey(1) & 0xFF == 27:
             break
 
 cap.release()
