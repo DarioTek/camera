@@ -1,3 +1,4 @@
+# Note: code works on macOS M1
 import cv2
 import mediapipe as mp
 
